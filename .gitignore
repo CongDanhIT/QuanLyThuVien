@@ -1,1 +1,18 @@
-/target/
+# ===== Maven =====
+target/
+*.log
+
+# ===== Eclipse =====
+.settings/
+.project
+.classpath
+
+# ===== Java =====
+*.class
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Hibernate =====
+hibernate.cfg.xml~
