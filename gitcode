@@ -1,0 +1,10 @@
+cd "D:/java workspace/Mylibrary"
+--chạy đến dự án--
+
+git log --oneline --graph --all 
+ -- coi nhánh trực quan hơn--
+ 
+ 
+ danh
+ 123456
+ -- mật khẩu và tài khoản--

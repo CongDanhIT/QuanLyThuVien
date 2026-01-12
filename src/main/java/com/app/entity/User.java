@@ -23,8 +23,8 @@ public class User {
     @Column(name = "role")
     private String role; // Ví dụ: "ADMIN", "LIBRARIAN"
 
-    @Column(name = "is_active")
-    private Boolean isActive; // Dùng Boolean để nhận giá trị true/false
+    @Column(name = "is_active",nullable = false)
+    private Boolean isActive = true; // Dùng Boolean để nhận giá trị true/false
 
     public User() {}
 
@@ -49,4 +49,6 @@ public class User {
     public void setRole(String role) { this.role = role; }
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+	
 }
