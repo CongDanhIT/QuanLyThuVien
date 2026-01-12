@@ -8,6 +8,7 @@ import com.app.service.AuthService;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Point2D;
 
 public class LoginFrame extends JFrame {
     private final Color BRANDING_BG = Color.decode("#1a1708"); // Màu nền yêu cầu
@@ -85,23 +86,105 @@ public class LoginFrame extends JFrame {
     }
 
     private JPanel createBrandingSide() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.insets = new Insets(0, 0, 15, 0);
+    // 1. PANEL CHÍNH BÊN TRÁI (Giữ nguyên cấu trúc cũ)
+    JPanel mainLeftPanel = new JPanel(new BorderLayout());
+    mainLeftPanel.setOpaque(false);
+    // Tăng padding trên một chút để cân đối với vòng tròn mới
+    mainLeftPanel.setBorder(new EmptyBorder(50, 20, 30, 20));
 
-        JLabel logo = new JLabel("📖");
-        logo.setFont(new Font("Serif", Font.PLAIN, 120));
-        logo.setForeground(AMBER_GOLD);
+    // --- PHẦN NỘI DUNG CHÍNH (CENTER) ---
+    JPanel centerContent = new JPanel(new GridBagLayout());
+    centerContent.setOpaque(false);
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    gbc.anchor = GridBagConstraints.CENTER;
 
-        JLabel slogan = new JLabel("<html><center>Kiến thức là<br>sức mạnh vô hạn</center></html>");
-        slogan.setFont(new Font("Serif", Font.ITALIC, 32));
-        slogan.setForeground(Color.WHITE);
+    // ================== TẠO HIỆU ỨNG VÒNG TRÒN PHÁT SÁNG (MỚI) ==================
+    // Tạo một JPanel tùy chỉnh để vẽ hiệu ứng nền
+    JPanel glowIconPanel = new JPanel(new GridBagLayout()) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        p.add(logo, gbc);
-        gbc.gridy = 1; p.add(slogan, gbc);
-        return p;
-    }
+            int w = getWidth();
+            int h = getHeight();
+            
+            // Tâm của vòng tròn
+            Point2D center = new Point2D.Float(w / 2f, h / 2f);
+            // Bán kính: Lấy cạnh nhỏ nhất chia đôi, nhân 0.9 để chừa chút viền
+            float radius = Math.min(w, h) / 2f * 0.9f;
+
+            // --- ĐỊNH NGHĨA MÀU SẮC GRADIENT (HIỆU ỨNG BLUR) ---
+            // Màu tâm: Vàng hổ phách, độ trong suốt khoảng 60% (150/255) để không quá gắt
+            Color centerColor = new Color(AMBER_GOLD.getRed(), AMBER_GOLD.getGreen(), AMBER_GOLD.getBlue(), 60);
+            
+            // Màu viền ngoài: Vàng hổ phách, nhưng hoàn toàn trong suốt (0/255) để tạo độ mờ dần
+            Color edgeColor = new Color(AMBER_GOLD.getRed(), AMBER_GOLD.getGreen(), AMBER_GOLD.getBlue(), 0);
+
+            // Tạo Gradient tròn lan từ tâm ra ngoài
+            // Mảng dist: vị trí các điểm màu (0.0 là tâm, 1.0 là rìa ngoài cùng)
+            // Mảng colors: màu tương ứng tại các vị trí đó.
+            // Kỹ thuật: Để tâm sáng rõ hơn và viền mờ nhanh, ta đẩy điểm màu tâm ra xa một chút (0.6f)
+            float[] dist = {0.0f, 0.6f, 1.0f};
+            Color[] colors = {centerColor, centerColor, edgeColor};
+            
+            RadialGradientPaint p = new RadialGradientPaint(center, radius, dist, colors);
+            g2.setPaint(p);
+            
+            // Vẽ hình tròn với màu tô gradient đã định nghĩa
+            g2.fill(new java.awt.geom.Ellipse2D.Float(w / 2f - radius, h / 2f - radius, radius * 2, radius * 2));
+
+            g2.dispose();
+            // Không gọi super.paintComponent để đảm bảo nền trong suốt
+        }
+    };
+    glowIconPanel.setOpaque(false);
+    // Đặt kích thước cố định cho vùng phát sáng, lớn hơn icon một chút
+    glowIconPanel.setPreferredSize(new Dimension(180, 180)); 
+    
+    // Icon Sách
+    JLabel logo = new JLabel("📖", SwingConstants.CENTER);
+    logo.setFont(new Font("Serif", Font.PLAIN, 110));
+    logo.setForeground(AMBER_GOLD);
+    
+    // Thêm icon vào giữa panel phát sáng
+    glowIconPanel.add(logo);
+    
+    // Thêm panel phát sáng (đã chứa icon) vào bố cục chính
+    gbc.gridy = 0;
+    gbc.insets = new Insets(0, 0, 15, 0); 
+    centerContent.add(glowIconPanel, gbc);
+    // ==========================================================================
+
+    // Slogan
+    JLabel slogan = new JLabel("<html><center>Kiến thức là<br>sức mạnh vô hạn</center></html>", SwingConstants.CENTER);
+    slogan.setFont(new Font("Serif", Font.ITALIC, 30));
+    slogan.setForeground(Color.WHITE);
+    gbc.gridy = 1;
+    gbc.insets = new Insets(0, 0, 15, 0);
+    centerContent.add(slogan, gbc);
+
+    // Premium Label
+    JLabel lblPremium = new JLabel("PREMIUM ACCESS", SwingConstants.CENTER);
+    lblPremium.setFont(new Font("SansSerif", Font.BOLD, 13));
+    lblPremium.setForeground(AMBER_GOLD);
+    lblPremium.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, AMBER_GOLD));
+    gbc.gridy = 2;
+    centerContent.add(lblPremium, gbc);
+
+    // --- PHẦN CHÂN TRANG (Quote) - SOUTH ---
+    JLabel quoteLabel = new JLabel("<html><center><i style='font-weight:normal; opacity:0.7;'>\"Thư viện là kho tàng chứa đựng tất cả sự giàu có của tinh thần nhân loại.\"</i></center></html>", SwingConstants.CENTER);
+    quoteLabel.setFont(new Font("Serif", Font.PLAIN, 15));
+    quoteLabel.setForeground(new Color(255, 255, 255, 180));
+    quoteLabel.setBorder(new EmptyBorder(40, 10, 0, 10));
+
+    mainLeftPanel.add(centerContent, BorderLayout.CENTER);
+    mainLeftPanel.add(quoteLabel, BorderLayout.SOUTH);
+
+    return mainLeftPanel;
+}
 
     private JPanel createFormSide() {
         JPanel p = new JPanel(new BorderLayout());
@@ -152,16 +235,22 @@ public class LoginFrame extends JFrame {
 
         p.add(Box.createVerticalStrut(40));
         p.add(createInputLabel("Tên người dùng"));
-        p.add(createInputField(new JTextField(), "Nhập tên đăng nhập"));
+        
+        // Gán vào biến để lấy dữ liệu sau này
+        JTextField txtUser = new JTextField();
+        p.add(createInputField(txtUser, "Nhập tên đăng nhập"));
+        
         p.add(Box.createVerticalStrut(20));
         p.add(createInputLabel("Mật khẩu"));
-        p.add(createInputField(new JPasswordField(), "••••••••"));
+        
+        JPasswordField txtPass = new JPasswordField();
+        p.add(createInputField(txtPass, "••••••••"));
         p.add(Box.createVerticalStrut(20));
 
-        // --- MỚI: Hàng chứa Checkbox và Link ---
+        // --- Hàng chứa Checkbox và Link ---
         JPanel optionsPanel = new JPanel(new BorderLayout());
         optionsPanel.setOpaque(false);
-        optionsPanel.setMaximumSize(new Dimension(420, 30)); // Cùng chiều rộng với ô nhập liệu
+        optionsPanel.setMaximumSize(new Dimension(420, 30));
         optionsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JCheckBox chkRemember = createCheckBox("Ghi nhớ đăng nhập");
@@ -170,7 +259,6 @@ public class LoginFrame extends JFrame {
         optionsPanel.add(chkRemember, BorderLayout.WEST);
         optionsPanel.add(lblForgot, BorderLayout.EAST);
         p.add(optionsPanel);
-        // ---------------------------------------
 
         p.add(Box.createVerticalStrut(40));
 
@@ -181,8 +269,58 @@ public class LoginFrame extends JFrame {
         btn.setMaximumSize(new Dimension(420, 60));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        p.add(btn);
+        
+        AuthService authService = new AuthService();
+        // --- XỬ LÝ SỰ KIỆN ĐĂNG NHẬP ---
+        btn.addActionListener(e -> {
+            String username = txtUser.getText().trim();
+            String password = new String(txtPass.getPassword());
 
+            // 1. Kiểm tra rỗng
+            if (username.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập tài khoản và mật khẩu!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // 2. Sử dụng SwingWorker để xử lý luồng phụ (Tránh đứng máy)
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            btn.setEnabled(false);
+
+            SwingWorker<String, Void> worker = new SwingWorker<>() {
+                @Override
+                protected String doInBackground() {
+                    // Bây giờ nó sẽ nhận giá trị String ("SUCCESS" hoặc lỗi) từ Service của bạn
+                    return authService.authenticate(username, password);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                    	String result = get(); // Nhận chuỗi thông báo từ Service
+                        setCursor(Cursor.getDefaultCursor());
+                        btn.setEnabled(true);
+
+                        if ("SUCCESS".equals(result)) {
+                            // UI chỉ lo điều hướng
+                            JOptionPane.showMessageDialog(null, "Đăng nhập thành công!");
+                            
+                            // Mở màn hình chính (Dashboard)
+                            // new MainDashboard().setVisible(true); 
+                            dispose(); 
+                        } else {
+                            // UI chỉ lo hiển thị lỗi
+                            JOptionPane.showMessageDialog(null, result, "Thông báo", JOptionPane.ERROR_MESSAGE);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        JOptionPane.showMessageDialog(null, "Lỗi kết nối Server!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            worker.execute();
+        });
+
+        p.add(btn);
         return p;
     }
 
@@ -228,6 +366,7 @@ public class LoginFrame extends JFrame {
     JButton btn = new JButton("Tạo tài khoản quản trị");
     btn.setBackground(AMBER_GOLD);
     btn.setForeground(DARK_TEXT);
+    btn.setFont(new Font("SansSerif", Font.BOLD, 16));
     btn.setMaximumSize(new Dimension(420, 60));
     btn.setAlignmentX(Component.LEFT_ALIGNMENT);
     btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
