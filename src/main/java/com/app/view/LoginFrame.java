@@ -304,8 +304,8 @@ public class LoginFrame extends JFrame {
                             // UI chỉ lo điều hướng
                             JOptionPane.showMessageDialog(null, "Đăng nhập thành công!");
                             
-                            // Mở màn hình chính (Dashboard)
-                            // new MainDashboard().setVisible(true); 
+                         // Mở màn hình chính MainFrame tại đây
+                            new MainFrame().setVisible(true);
                             dispose(); 
                         } else {
                             // UI chỉ lo hiển thị lỗi

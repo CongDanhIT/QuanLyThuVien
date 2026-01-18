@@ -1,6 +1,7 @@
 package com.app.main;
 
 import com.app.view.LoginFrame;
+import com.app.view.MainFrame;
 import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
 
