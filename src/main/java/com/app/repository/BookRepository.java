@@ -47,4 +47,5 @@ public class BookRepository {
             return session.get(Book.class, id);
         }
     }
+    
 }

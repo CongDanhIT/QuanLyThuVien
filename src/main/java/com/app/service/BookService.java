@@ -33,4 +33,14 @@ public class BookService {
             bookRepo.saveOrUpdate(book);
         }
     }
+    public long countNewBooksThisMonth() {
+        java.time.LocalDate startOfMonth = java.time.LocalDate.now().withDayOfMonth(1);
+        return getAllBooks().stream()
+                .filter(b -> b.getCreatedAt() != null && !b.getCreatedAt().isBefore(startOfMonth))
+                .count();
+    }
+
+    public int getTotalInventoryQty() {
+        return getAllBooks().stream().mapToInt(Book::getTotalQty).sum();
+    }
 }

@@ -14,7 +14,6 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class MainFrame extends JFrame {
     private final Color BG_COLOR = Color.decode("#1A1A14");
     private final Color SIDEBAR_BG = Color.decode("#242424");
@@ -25,7 +24,13 @@ public class MainFrame extends JFrame {
 
     private JPanel cardPanel;
     private CardLayout cardLayout;
-    private List<JButton> navButtons = new ArrayList<>(); // Quản lý các nút menu
+    private List<JButton> navButtons = new ArrayList<>();
+
+    // --- LƯU THAM CHIẾU CÁC PANEL ĐỂ GỌI REFRESH ---
+    private DashboardPanel dashboardPanel;
+    private BookInventoryPanel bookPanel;
+    private MemberManagementPanel memberPanel;
+    private LoanManagementPanel loanPanel;
 
     public MainFrame() {
         setTitle("SLMS - Hệ Thống Quản Lý Thư Viện Cao Cấp");
@@ -34,17 +39,23 @@ public class MainFrame extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
+        // Khởi tạo các panel một lần duy nhất
+        dashboardPanel = new DashboardPanel();
+        bookPanel = new BookInventoryPanel();
+        memberPanel = new MemberManagementPanel();
+        loanPanel = new LoanManagementPanel();
+
         add(createSidebar(), BorderLayout.WEST);
 
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
         cardPanel.setBackground(BG_COLOR);
 
-        // Thêm các tab vào CardLayout
-        cardPanel.add(new DashboardPanel(), "DASHBOARD"); 
-        cardPanel.add(new BookInventoryPanel(), "BOOKS");
-        cardPanel.add(new MemberManagementPanel(), "MEMBERS");
-        cardPanel.add(new LoanManagementPanel(), "LOANS");
+        // Thêm các tab vào CardLayout bằng tham chiếu
+        cardPanel.add(dashboardPanel, "DASHBOARD"); 
+        cardPanel.add(bookPanel, "BOOKS");
+        cardPanel.add(memberPanel, "MEMBERS");
+        cardPanel.add(loanPanel, "LOANS");
 
         add(cardPanel, BorderLayout.CENTER);
     }
@@ -77,7 +88,6 @@ public class MainFrame extends JFrame {
 
         for (JButton btn : navButtons) menuPanel.add(btn);
         
-        // Mặc định nút đầu tiên (Dashboard) là Active
         setButtonActive(navButtons.get(0));
 
         sidebar.add(topPanel, BorderLayout.NORTH);
@@ -100,20 +110,27 @@ public class MainFrame extends JFrame {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(new EmptyBorder(0, 25, 0, 0));
 
-        // Sự kiện Click: Chuyển tab và đổi style nút
+        // Sự kiện Click: Chuyển tab và TỰ ĐỘNG LÀM MỚI DỮ LIỆU
         btn.addActionListener(e -> {
-            cardLayout.show(cardPanel, cardName); // Chuyển Tab
-            for (JButton b : navButtons) setButtonInactive(b); // Reset các nút khác
-            setButtonActive(btn); // Làm nổi bật nút vừa bấm
+            cardLayout.show(cardPanel, cardName); 
+            
+            // Gọi hàm refresh tương ứng của từng Panel
+            switch (cardName) {
+                case "DASHBOARD": dashboardPanel.refreshData(); break;
+                case "BOOKS": bookPanel.refreshTable(); break;
+                case "MEMBERS": memberPanel.refreshTable(null); break;
+                case "LOANS": loanPanel.refreshTable(); break;
+            }
+
+            for (JButton b : navButtons) setButtonInactive(b); 
+            setButtonActive(btn); 
         });
 
-        // Hiệu ứng Hover
         btn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { 
                 if (btn.getForeground() != AMBER_GOLD) btn.setForeground(AMBER_GOLD); 
             }
             public void mouseExited(MouseEvent e) { 
-                // Nếu không phải nút đang Active thì trả về màu trắng
                 if (btn.getBorder().getBorderInsets(btn).left < 5) btn.setForeground(Color.WHITE);
             }
         });
@@ -121,7 +138,6 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
-    // Hàm làm nổi bật nút (Có vạch đỏ và chữ vàng)
     private void setButtonActive(JButton btn) {
         btn.setForeground(AMBER_GOLD);
         btn.setBorder(BorderFactory.createCompoundBorder(
@@ -130,7 +146,6 @@ public class MainFrame extends JFrame {
         ));
     }
 
-    // Hàm trả nút về trạng thái bình thường
     private void setButtonInactive(JButton btn) {
         btn.setForeground(Color.WHITE);
         btn.setBorder(new EmptyBorder(0, 25, 0, 0));
@@ -147,7 +162,7 @@ public class MainFrame extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20); // Bo góc khung user
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
                 g2.dispose();
             }
         };
@@ -178,16 +193,6 @@ public class MainFrame extends JFrame {
         card.add(lblRole, gbc);
 
         p.add(card);
-        return p;
-    }
-
-    private JPanel createPlaceholderPanel(String title) {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBackground(BG_COLOR);
-        JLabel lbl = new JLabel("Trang: " + title);
-        lbl.setForeground(Color.WHITE);
-        lbl.setFont(new Font("Serif", Font.BOLD, 30));
-        p.add(lbl);
         return p;
     }
 }

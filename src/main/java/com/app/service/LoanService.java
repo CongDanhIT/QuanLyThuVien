@@ -54,4 +54,13 @@ public class LoanService {
             loanRepo.saveOrUpdate(loan);
         }
     }
+    public long getActiveLoansCount() {
+        return getAllLoans().stream().filter(l -> "BORROWED".equals(l.getStatus())).count();
+    }
+
+    public long getOverdueCount() {
+        return getAllLoans().stream()
+                .filter(l -> "BORROWED".equals(l.getStatus()) && l.getDueDate().isBefore(java.time.LocalDate.now()))
+                .count();
+    }
 }

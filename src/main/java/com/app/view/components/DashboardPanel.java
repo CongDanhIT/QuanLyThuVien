@@ -6,10 +6,25 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.app.entity.*;
+import com.app.service.*;
 
 public class DashboardPanel extends JPanel {
     private final Color AMBER_GOLD = Color.decode("#FFC845");
-    private final Color CRIMSON_RED = Color.decode("#800000"); // Màu đỏ Crimson cho Header
+    private final Color CRIMSON_RED = Color.decode("#800000");
+
+    private BookService bookService = new BookService();
+    private MemberService memberService = new MemberService();
+    private LoanService loanService = new LoanService();
+    
+    private JPanel cardsPanel;
+    private JTable overdueTable;
 
     public DashboardPanel() {
         setLayout(new BorderLayout());
@@ -24,20 +39,19 @@ public class DashboardPanel extends JPanel {
         title.setForeground(Color.WHITE);
         header.add(title, BorderLayout.WEST);
         
-        JLabel date = new JLabel("THỨ HAI, 20/05/2024 🔔");
-        date.setForeground(AMBER_GOLD);
-        header.add(date, BorderLayout.EAST);
+        JLabel dateLabel = new JLabel(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy")).toUpperCase() + " 🔔");
+        dateLabel.setForeground(AMBER_GOLD);
+        header.add(dateLabel, BorderLayout.EAST);
 
-        // --- Stats Cards Area ---
-        JPanel cards = new JPanel(new GridLayout(1, 4, 25, 0));
-        cards.setOpaque(false);
-        cards.setBorder(new EmptyBorder(30, 0, 40, 0));
+        // --- Container cho Cards và Table ---
+        JPanel centerContent = new JPanel();
+        centerContent.setLayout(new BoxLayout(centerContent, BoxLayout.Y_AXIS));
+        centerContent.setOpaque(false);
+
+        cardsPanel = new JPanel(new GridLayout(1, 4, 25, 0));
+        cardsPanel.setOpaque(false);
+        cardsPanel.setBorder(new EmptyBorder(30, 0, 40, 0));
         
-        cards.add(new StatCard("Tổng số sách", "1,284", "+12 cuốn tháng này"));
-        cards.add(new StatCard("Độc giả mới", "85", "+5 độc giả hôm nay"));
-        cards.add(new StatCard("Sách đang mượn", "342", "28% trên tổng kho"));
-        cards.add(new StatCard("Sách quá hạn", "14", "CẦN XỬ LÝ NGAY"));
-
         // --- Table Section ---
         JPanel tablePanel = new JPanel(new BorderLayout());
         tablePanel.setOpaque(false);
@@ -47,74 +61,114 @@ public class DashboardPanel extends JPanel {
         tableTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
 
         String[] cols = {"Mã phiếu", "Độc giả", "Tên sách", "Ngày mượn", "Hết hạn", "Trễ hạn"};
-        Object[][] data = {
-            {"#PH8823", "Nguyễn Văn Khải", "Nhà Giả Kim", "01/05/2024", "15/05/2024", "5 ngày"},
-            {"#PH8845", "Lê Thị Mai Anh", "Chiến Tranh và Hòa Bình", "28/04/2024", "12/05/2024", "8 ngày"},
-            {"#PH8901", "Trần Minh Quân", "Đắc Nhân Tâm", "05/05/2024", "19/05/2024", "1 ngày"},
-            {"#PH8912", "Phạm Hoàng Nam", "Tâm Lý Học Tội Phạm", "02/05/2024", "16/05/2024", "4 ngày"}
+        DefaultTableModel tableModel = new DefaultTableModel(null, cols) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         
-        JTable table = new JTable(new DefaultTableModel(data, cols));
-        styleTable(table); // BỔ SUNG: Gọi hàm định dạng bảng
+        overdueTable = new JTable(tableModel);
+        styleTable(overdueTable);
         
-        // BỔ SUNG: Tùy chỉnh JScrollPane để không bị lộ nền trắng
-        JScrollPane scrollPane = new JScrollPane(table);
+        JScrollPane scrollPane = new JScrollPane(overdueTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(60, 60, 60)));
         scrollPane.getViewport().setBackground(Color.decode("#1A1A14"));
         
         tablePanel.add(tableTitle, BorderLayout.NORTH);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
 
+        centerContent.add(cardsPanel);
+        centerContent.add(tablePanel);
+
         add(header, BorderLayout.NORTH);
-        add(cards, BorderLayout.CENTER);
-        add(tablePanel, BorderLayout.SOUTH);
+        add(centerContent, BorderLayout.CENTER);
+
+        refreshData(); // Nạp dữ liệu thật
     }
 
-    // BỔ SUNG: Hàm định dạng màu sắc bảng theo yêu cầu
+    public void refreshData() {
+        // 1. Lấy dữ liệu từ Database
+        List<Book> allBooks = bookService.getAllBooks();
+        List<Member> allMembers = memberService.getAllMembers();
+        List<Loan> allLoans = loanService.getAllLoans();
+        LocalDate today = LocalDate.now();
+
+        // --- Tính toán Card 1: Tổng sách ---
+        long totalBooks = allBooks.size();
+        long newBooksMonth = allBooks.stream()
+                .filter(b -> b.getCreatedAt() != null && b.getCreatedAt().getMonth() == today.getMonth())
+                .count();
+
+        // --- Tính toán Card 2: Độc giả ---
+        long totalMembers = allMembers.size();
+        long newMembersToday = allMembers.stream()
+                .filter(m -> m.getJoinedDate() != null && m.getJoinedDate().equals(today))
+                .count();
+
+        // --- Tính toán Card 3: Đang mượn & % Kho ---
+        long activeLoans = allLoans.stream().filter(l -> "BORROWED".equals(l.getStatus())).count();
+        int totalInventory = bookService.getTotalInventoryQty();
+        double percentage = totalInventory > 0 ? (double) activeLoans / totalInventory * 100 : 0;
+
+        // --- Tính toán Card 4 & Table: Quá hạn ---
+        List<Loan> overdueLoans = allLoans.stream()
+                .filter(l -> "BORROWED".equals(l.getStatus()) && l.getDueDate().isBefore(today))
+                .collect(Collectors.toList());
+
+        // 2. Cập nhật Stat Cards
+        cardsPanel.removeAll();
+        cardsPanel.add(new StatCard("Tổng số sách", String.format("%,d", totalBooks), "+" + newBooksMonth + " cuốn tháng này"));
+        cardsPanel.add(new StatCard("Tổng độc giả", String.format("%,d", totalMembers), "+" + newMembersToday + " độc giả hôm nay"));
+        cardsPanel.add(new StatCard("Sách đang mượn", String.format("%,d", activeLoans), String.format("%.1f%% trên tổng kho", percentage)));
+        cardsPanel.add(new StatCard("Sách quá hạn", String.valueOf(overdueLoans.size()), "CẦN XỬ LÝ NGAY"));
+        cardsPanel.revalidate();
+
+        // 3. Cập nhật Bảng quá hạn
+        DefaultTableModel model = (DefaultTableModel) overdueTable.getModel();
+        model.setRowCount(0);
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        for (Loan l : overdueLoans) {
+            Member m = memberService.getMemberById(l.getMemberId());
+            Book b = allBooks.stream().filter(book -> book.getId() == l.getBookId().intValue()).findFirst().orElse(null);
+            
+            long daysLate = ChronoUnit.DAYS.between(l.getDueDate(), today);
+            
+            model.addRow(new Object[]{
+                "#PH" + String.format("%04d", l.getId()),
+                m != null ? m.getFullName() : "N/A",
+                b != null ? b.getTitle() : "N/A",
+                l.getBorrowDate().format(dtf),
+                l.getDueDate().format(dtf),
+                daysLate + " ngày"
+            });
+        }
+    }
+
     private void styleTable(JTable table) {
-        // 1. Định dạng Header: Nền Crimson Red, chữ Gold
         JTableHeader header = table.getTableHeader();
         header.setBackground(CRIMSON_RED);
         header.setForeground(AMBER_GOLD);
         header.setFont(new Font("SansSerif", Font.BOLD, 14));
         header.setPreferredSize(new Dimension(0, 40));
-        header.setReorderingAllowed(false);
 
-        // 2. Định dạng Dòng (Zebra rows và màu chữ)
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, 
                     boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                
-                if (isSelected) {
-                    c.setBackground(AMBER_GOLD); // Màu vàng khi chọn
-                    c.setForeground(Color.BLACK);
-                } else {
-                    // Hiệu ứng Zebra: Dòng lẻ tối (#1A1A14), dòng chẵn xám nhẹ (#2A2A2A)
+                if (!isSelected) {
                     c.setBackground(row % 2 == 0 ? Color.decode("#1A1A14") : Color.decode("#2A2A2A"));
                     c.setForeground(Color.WHITE);
                 }
-
-                // Cột "Trễ hạn" (cột index 5) hiển thị màu đỏ rực nếu có giá trị
-                if (column == 5 && value != null) {
-                    if (!isSelected) c.setForeground(Color.decode("#FF4D4D"));
-                    setFont(getFont().deriveFont(Font.BOLD));
-                }
-
-                ((JLabel)c).setBorder(new EmptyBorder(0, 10, 0, 10)); // Padding cho chữ
+                if (column == 5 && value != null) c.setForeground(Color.decode("#FF4D4D"));
+                ((JLabel)c).setHorizontalAlignment(SwingConstants.CENTER);
                 return c;
             }
         });
-
         table.setRowHeight(40);
         table.setShowGrid(false);
-        table.setIntercellSpacing(new Dimension(0, 0));
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 }
 
-// Giữ nguyên class StatCard của bạn vì nó đã rất tốt rồi
 class StatCard extends JPanel {
     private final Color BG_CARD = Color.decode("#2D2A1E");
     private final Color BORDER_GOLD = Color.decode("#D4AF37");
@@ -137,10 +191,8 @@ class StatCard extends JPanel {
         else s.setForeground(BORDER_GOLD);
         s.setFont(new Font("SansSerif", Font.PLAIN, 12));
 
-        add(t);
-        add(Box.createVerticalStrut(10));
-        add(v);
-        add(Box.createVerticalStrut(5));
+        add(t); add(Box.createVerticalStrut(10));
+        add(v); add(Box.createVerticalStrut(5));
         add(s);
     }
 
@@ -151,7 +203,6 @@ class StatCard extends JPanel {
         g2.setColor(BG_CARD);
         g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 15, 15);
         g2.setColor(BORDER_GOLD);
-        g2.setStroke(new BasicStroke(1));
         g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 15, 15);
         g2.dispose();
     }

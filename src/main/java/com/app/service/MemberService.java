@@ -22,4 +22,9 @@ public class MemberService {
     public Member getMemberById(Long id) {
         return memberRepo.findById(id);
     }
+    public long countNewMembersToday() {
+        return getAllMembers().stream()
+                .filter(m -> m.getJoinedDate() != null && m.getJoinedDate().equals(java.time.LocalDate.now()))
+                .count();
+    }
 }

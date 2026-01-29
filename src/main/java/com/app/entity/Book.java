@@ -24,7 +24,9 @@ public class Book {
 
     @Column(name = "available_qty")
     private int availableQty;
-
+    
+    @Column(name = "created_at")
+    private java.time.LocalDate createdAt = java.time.LocalDate.now();
     public Book() { }
 
     public Book(String title, String author, String category, int totalQty, int availableQty) {
@@ -35,6 +37,9 @@ public class Book {
         this.availableQty = availableQty;
     }
 
+    public java.time.LocalDate getCreatedAt() { return createdAt; }
+    public void setCreatedAt(java.time.LocalDate createdAt) { this.createdAt = createdAt; }
+    
 	public int getId() {
 		return id;
 	}
