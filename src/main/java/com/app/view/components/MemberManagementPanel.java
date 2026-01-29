@@ -1,10 +1,18 @@
 package com.app.view.components;
 
+import com.app.entity.Member;
+import com.app.service.MemberService;
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.ArrayList;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class MemberManagementPanel extends JPanel {
     private final Color BG_COLOR = Color.decode("#1A1A14");
@@ -13,114 +21,153 @@ public class MemberManagementPanel extends JPanel {
     private final Color CRIMSON_RED = Color.decode("#800000");
     private final Color TEXT_GRAY = new Color(160, 160, 160);
 
+    private MemberService memberService = new MemberService();
+    private JTable table;
+    private Timer searchTimer;
+    private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     public MemberManagementPanel() {
         setLayout(new BorderLayout());
         setBackground(BG_COLOR);
         setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // --- PHẦN TRÊN (NORTH) ---
-        JPanel topContainer = new JPanel();
-        topContainer.setLayout(new BoxLayout(topContainer, BoxLayout.Y_AXIS));
-        topContainer.setOpaque(false);
-
-        // 1. Header Section
+        // --- Header ---
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
-
-        JPanel titleGroup = new JPanel(new GridLayout(2, 1));
-        titleGroup.setOpaque(false);
         JLabel title = new JLabel("Quản lý độc giả");
         title.setFont(new Font("Serif", Font.BOLD, 28));
         title.setForeground(Color.WHITE);
-        JLabel subTitle = new JLabel("Danh mục lưu trữ thông tin thành viên thư viện.");
-        subTitle.setForeground(TEXT_GRAY);
-        titleGroup.add(title);
-        titleGroup.add(subTitle);
-
+        
         JButton btnAdd = new JButton("+ Thêm Độc Giả");
         btnAdd.setBackground(AMBER_GOLD);
         btnAdd.setForeground(Color.BLACK);
         btnAdd.setFont(new Font("SansSerif", Font.BOLD, 14));
-        btnAdd.setBorder(new EmptyBorder(14, 24, 14, 24)); // Padding theo yêu cầu
+        btnAdd.setBorder(new EmptyBorder(14, 24, 14, 24));
         btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnAdd.addActionListener(e -> showMemberDialog(null));
 
-        headerPanel.add(titleGroup, BorderLayout.WEST);
+        headerPanel.add(title, BorderLayout.WEST);
         headerPanel.add(btnAdd, BorderLayout.EAST);
 
-        // 2. Action Bar Section
-        JPanel actionBar = new JPanel(new BorderLayout());
-        actionBar.setOpaque(false);
-        actionBar.setBorder(new EmptyBorder(25, 0, 25, 0));
-
+        // --- Search Bar ---
         JTextField txtSearch = new JTextField();
         txtSearch.setPreferredSize(new Dimension(500, 48));
         txtSearch.setBackground(CARD_BG);
         txtSearch.setForeground(Color.WHITE);
         txtSearch.setCaretColor(AMBER_GOLD);
-        txtSearch.putClientProperty("JTextField.placeholderText", "Tìm kiếm theo Mã hoặc Họ tên...");
+        txtSearch.putClientProperty("JTextField.placeholderText", "Tìm kiếm tên, email hoặc mã độc giả...");
         txtSearch.putClientProperty("JTextField.leadingIcon", safeLoadIcon("icons/search.svg", 16, 16));
-
         txtSearch.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(80, 80, 80), 1, true),
-            new EmptyBorder(0, 15, 0, 15)
+            BorderFactory.createLineBorder(new Color(80, 80, 80), 1, true), new EmptyBorder(0, 15, 0, 15)
         ));
 
-        JButton btnFilter = new JButton("Lọc danh sách");
-        btnFilter.setBackground(CARD_BG);
-        btnFilter.setForeground(Color.WHITE);
-        btnFilter.setIcon(safeLoadIcon("icons/filter.svg", 16, 16));
-        btnFilter.setPreferredSize(new Dimension(160, 48));
-        btnFilter.setFocusPainted(false);
-
-        actionBar.add(txtSearch, BorderLayout.WEST);
-        actionBar.add(btnFilter, BorderLayout.EAST);
-
-        topContainer.add(headerPanel);
-        topContainer.add(actionBar);
-
-        // --- PHẦN GIỮA (CENTER): Bảng dữ liệu ---
-        String[] columns = {"MÃ ĐỘC GIẢ", "HỌ TÊN", "NGÀY SINH", "SỐ ĐIỆN THOẠI", "NGÀY ĐĂNG KÝ", "HẠN THẺ", "THAO TÁC"};
-        Object[][] data = {
-            {"DG2024001", "Trần Hoàng Long", "12/10/1995", "0901 234 567", "01/01/2024", "31/12/2024", ""},
-            {"DG2024002", "Nguyễn Minh Châu", "24/05/1998", "0938 112 233", "15/01/2024", "15/01/2025", ""},
-            {"DG2024003", "Lê Văn Hùng", "08/11/1990", "0912 345 678", "20/02/2024", "20/02/2025", ""},
-            {"DG2024004", "Phạm Thúy Vy", "19/02/2002", "0987 654 321", "05/03/2024", "05/03/2025", ""},
-            {"DG2024005", "Bùi Anh Tuấn", "30/07/1988", "0909 998 877", "10/03/2024", "10/03/2025", ""}
-        };
-
-        JTable table = new JTable(new DefaultTableModel(data, columns) {
-            @Override public boolean isCellEditable(int r, int c) { 
-                return c == 6; // Chỉ cho phép cột Thao tác được "edit" để bấm nút
-            }
+        searchTimer = new Timer(500, e -> refreshTable(txtSearch.getText()));
+        searchTimer.setRepeats(false);
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { restart(); }
+            public void removeUpdate(DocumentEvent e) { restart(); }
+            public void changedUpdate(DocumentEvent e) { restart(); }
+            private void restart() { if (searchTimer.isRunning()) searchTimer.stop(); searchTimer.start(); }
         });
-        styleMemberTable(table);
+
+        JPanel searchWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 20));
+        searchWrapper.setOpaque(false);
+        searchWrapper.add(txtSearch);
+
+        // --- Table ---
+        String[] columns = {"MÃ", "HỌ TÊN", "EMAIL", "SỐ ĐIỆN THOẠI", "NGÀY THAM GIA", "TRẠNG THÁI", "THAO TÁC"};
+        table = new JTable(new DefaultTableModel(null, columns) {
+            @Override public boolean isCellEditable(int r, int c) { return c == 6; }
+        });
+        styleMemberTable();
 
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getViewport().setBackground(BG_COLOR);
 
-        // --- PHẦN DƯỚI (SOUTH) ---
-        JPanel footerPanel = new JPanel(new BorderLayout());
-        footerPanel.setOpaque(false);
-        footerPanel.setBorder(new EmptyBorder(20, 0, 0, 0));
-        JLabel lblPage = new JLabel("TRANG 1 / 12");
-        lblPage.setForeground(TEXT_GRAY);
-        footerPanel.add(lblPage, BorderLayout.WEST);
+        JPanel topPart = new JPanel();
+        topPart.setLayout(new BoxLayout(topPart, BoxLayout.Y_AXIS));
+        topPart.setOpaque(false);
+        topPart.add(headerPanel);
+        topPart.add(searchWrapper);
 
-        add(topContainer, BorderLayout.NORTH);
+        add(topPart, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
-        add(footerPanel, BorderLayout.SOUTH);
+
+        refreshTable(null);
     }
 
     private Icon safeLoadIcon(String path, int w, int h) {
-        try {
-            return new FlatSVGIcon(path, w, h);
-        } catch (Exception e) {
-            return null;
+        try { return new FlatSVGIcon(path, w, h); } catch (Exception e) { return null; }
+    }
+
+    public void refreshTable(String query) {
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        model.setRowCount(0);
+        List<Member> all = memberService.getAllMembers();
+
+        if (query == null || query.trim().isEmpty()) {
+            for (Member m : all) addRow(model, m);
+            return;
+        }
+
+        String key = query.toLowerCase();
+        List<Member> matches = new ArrayList<>();
+        List<Member> others = new ArrayList<>();
+
+        for (Member m : all) {
+            boolean isMatch = m.getFullName().toLowerCase().contains(key) || 
+                              (m.getEmail() != null && m.getEmail().toLowerCase().contains(key)) ||
+                              String.valueOf(m.getId()).contains(key);
+            if (isMatch) matches.add(m); else others.add(m);
+        }
+
+        for (Member m : matches) addRow(model, m);
+        for (Member m : others) addRow(model, m);
+    }
+
+    private void addRow(DefaultTableModel model, Member m) {
+        model.addRow(new Object[]{
+            "DG-" + String.format("%05d", m.getId()),
+            m.getFullName(),
+            m.getEmail(),
+            m.getPhone(),
+            m.getJoinedDate() != null ? m.getJoinedDate().format(dtf) : "",
+            m.getStatus(),
+            ""
+        });
+    }
+
+    private void showMemberDialog(Member member) {
+        boolean isEdit = (member != null);
+        JTextField fName = new JTextField(isEdit ? member.getFullName() : "");
+        JTextField fEmail = new JTextField(isEdit ? member.getEmail() : "");
+        JTextField fPhone = new JTextField(isEdit ? member.getPhone() : "");
+        JComboBox<String> fStatus = new JComboBox<>(new String[]{"ACTIVE", "BANNED"});
+        if (isEdit) fStatus.setSelectedItem(member.getStatus());
+
+        Object[] message = {
+            "Họ tên:", fName,
+            "Email:", fEmail,
+            "Số điện thoại:", fPhone,
+            "Trạng thái:", fStatus
+        };
+
+        int option = JOptionPane.showConfirmDialog(this, message, isEdit ? "Sửa độc giả" : "Thêm độc giả", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            Member m = isEdit ? member : new Member();
+            m.setFullName(fName.getText());
+            m.setEmail(fEmail.getText());
+            m.setPhone(fPhone.getText());
+            m.setStatus((String) fStatus.getSelectedItem());
+            if (!isEdit) m.setJoinedDate(LocalDate.now());
+
+            memberService.saveOrUpdateMember(m);
+            refreshTable(null);
         }
     }
 
-    private void styleMemberTable(JTable table) {
+    private void styleMemberTable() {
         table.setRowHeight(50);
         table.setBackground(BG_COLOR);
         table.setForeground(Color.WHITE);
@@ -134,100 +181,68 @@ public class MemberManagementPanel extends JPanel {
         header.setFont(new Font("SansSerif", Font.BOLD, 13));
         header.setPreferredSize(new Dimension(0, 45));
 
-        // Renderer cho các cột dữ liệu thông thường
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int col) {
+            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int col) {
                 JLabel c = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, col);
                 c.setHorizontalAlignment(CENTER);
                 if (!s) {
                     c.setBackground(r % 2 == 0 ? BG_COLOR : new Color(30, 30, 30));
                     if (col == 0) c.setForeground(AMBER_GOLD);
+                    else if (col == 5 && "BANNED".equals(v)) c.setForeground(Color.RED);
                     else c.setForeground(Color.WHITE);
-                    if (col == 5 && v.toString().contains("2025")) c.setForeground(new Color(255, 77, 77));
                 }
                 return c;
             }
         });
 
-        // Thiết lập Renderer và Editor cho cột THAO TÁC (Index 6)
         table.getColumnModel().getColumn(6).setCellRenderer(new MemberActionRenderer());
-        table.getColumnModel().getColumn(6).setCellEditor(new MemberActionEditor(table));
+        table.getColumnModel().getColumn(6).setCellEditor(new MemberActionEditor());
     }
 
-    // --- INNER CLASSES DÀNH CHO NÚT BẤM TRÊN TABLE ---
-
+    // --- Inner Classes cho Thao tác ---
     class ActionPanel extends JPanel {
         public JButton btnEdit = new JButton("✎");
         public JButton btnDelete = new JButton("🗑");
-
         public ActionPanel() {
-            setLayout(new FlowLayout(FlowLayout.CENTER, 10, 8));
-            setOpaque(false);
-
-            styleButton(btnEdit, AMBER_GOLD);
-            styleButton(btnDelete, new Color(255, 77, 77)); // Màu đỏ Crimson
-
-            add(btnEdit);
-            add(btnDelete);
-        }
-
-        private void styleButton(JButton btn, Color color) {
-            btn.setFont(new Font("SansSerif", Font.PLAIN, 18));
-            btn.setForeground(color);
-            btn.setBorderPainted(false);
-            btn.setContentAreaFilled(false);
-            btn.setFocusPainted(false);
-            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            setLayout(new FlowLayout(FlowLayout.CENTER, 10, 8)); setOpaque(false);
+            btnEdit.setForeground(AMBER_GOLD); btnDelete.setForeground(new Color(255, 77, 77));
+            btnEdit.setFont(new Font("SansSerif", Font.PLAIN, 18));
+            btnDelete.setFont(new Font("SansSerif", Font.PLAIN, 18));
+            btnEdit.setBorderPainted(false); btnEdit.setContentAreaFilled(false);
+            btnDelete.setBorderPainted(false); btnDelete.setContentAreaFilled(false);
+            btnEdit.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            add(btnEdit); add(btnDelete);
         }
     }
 
     class MemberActionRenderer implements TableCellRenderer {
         private final ActionPanel panel = new ActionPanel();
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            // Đồng bộ màu nền với dòng của bảng
-            if (isSelected) {
-                panel.setBackground(table.getSelectionBackground());
-            } else {
-                panel.setBackground(row % 2 == 0 ? BG_COLOR : new Color(30, 30, 30));
-            }
-            panel.setOpaque(true);
-            return panel;
+        @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+            panel.setBackground(s ? t.getSelectionBackground() : (r % 2 == 0 ? BG_COLOR : new Color(30, 30, 30)));
+            panel.setOpaque(true); return panel;
         }
     }
 
     class MemberActionEditor extends AbstractCellEditor implements TableCellEditor {
         private final ActionPanel panel = new ActionPanel();
-
-        public MemberActionEditor(JTable table) {
+        public MemberActionEditor() {
             panel.btnEdit.addActionListener(e -> {
-                int row = table.getSelectedRow();
-                String name = table.getValueAt(row, 1).toString();
-                JOptionPane.showMessageDialog(null, "Đang sửa thông tin độc giả: " + name);
+                Long id = Long.parseLong(table.getValueAt(table.getSelectedRow(), 0).toString().replace("DG-", ""));
                 fireEditingStopped();
+                showMemberDialog(memberService.getMemberById(id));
             });
-
             panel.btnDelete.addActionListener(e -> {
-                int row = table.getSelectedRow();
-                String name = table.getValueAt(row, 1).toString();
-                int confirm = JOptionPane.showConfirmDialog(null, 
-                    "Bạn có chắc muốn xóa độc giả: " + name + "?", "Xác nhận", JOptionPane.YES_NO_OPTION);
-                if (confirm == JOptionPane.YES_OPTION) {
-                    // Xử lý xóa ở đây
+                Long id = Long.parseLong(table.getValueAt(table.getSelectedRow(), 0).toString().replace("DG-", ""));
+                if (JOptionPane.showConfirmDialog(null, "Xác nhận xóa độc giả này?") == JOptionPane.YES_OPTION) {
+                    memberService.deleteMember(id); refreshTable(null);
                 }
                 fireEditingStopped();
             });
         }
-
-        @Override
-        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-            panel.setBackground(table.getSelectionBackground());
-            panel.setOpaque(true);
-            return panel;
+        @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
+            panel.setBackground(t.getSelectionBackground()); panel.setOpaque(true); return panel;
         }
-
-        @Override
-        public Object getCellEditorValue() { return ""; }
+        @Override public Object getCellEditorValue() { return ""; }
     }
 }

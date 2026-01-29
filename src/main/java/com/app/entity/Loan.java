@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate; // Dùng cái này cho chuẩn mới
 
 @Entity
-@Table(name = "Loans") // Lưu ý: Trong ảnh pgAdmin tên bảng là "Loans" (có thể viết hoa chữ L)
+@Table(name = "loans") // Lưu ý: Trong ảnh pgAdmin tên bảng là "Loans" (có thể viết hoa chữ L)
 public class Loan {
 
     @Id

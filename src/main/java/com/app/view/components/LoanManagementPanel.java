@@ -1,10 +1,19 @@
 package com.app.view.components;
 
+import com.app.entity.Book;
+import com.app.entity.Loan;
+import com.app.entity.Member;
+import com.app.service.BookService;
+import com.app.service.LoanService;
+import com.app.service.MemberService;
+import com.app.util.UserSession;
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class LoanManagementPanel extends JPanel {
     private final Color BG_COLOR = Color.decode("#1A1A14");
@@ -15,6 +24,12 @@ public class LoanManagementPanel extends JPanel {
     private final Color STATUS_GREEN = Color.decode("#50C878");
     private final Color STATUS_RED = Color.decode("#FF4D4D");
 
+    private LoanService loanService = new LoanService();
+    private BookService bookService = new BookService();
+    private JTable table;
+    private JTextField txtMemberId, txtBookId;
+ // Thêm khai báo này vào phần thuộc tính của class LoanManagementPanel
+    private MemberService memberService = new MemberService();
     public LoanManagementPanel() {
         setLayout(new BorderLayout());
         setBackground(BG_COLOR);
@@ -34,14 +49,14 @@ public class LoanManagementPanel extends JPanel {
         titleGroup.add(title);
         titleGroup.add(subTitle);
 
-        JLabel lblDate = new JLabel("THỨ HAI, 20/05/2024 🔔");
+        JLabel lblDate = new JLabel(java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy")).toUpperCase() + " 🔔");
         lblDate.setForeground(AMBER_GOLD);
         lblDate.setFont(new Font("SansSerif", Font.BOLD, 12));
 
         headerPanel.add(titleGroup, BorderLayout.WEST);
         headerPanel.add(lblDate, BorderLayout.EAST);
 
-        // --- 2. Quick Action Card (Fix Layout & Spacing) ---
+        // --- 2. Quick Action Card ---
         JPanel quickActionCard = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -54,7 +69,6 @@ public class LoanManagementPanel extends JPanel {
         };
         quickActionCard.setOpaque(false);
         quickActionCard.setBorder(new EmptyBorder(30, 40, 30, 40));
-        // Khống chế chiều cao thẻ để không bị kéo giãn theo trục Y
         quickActionCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -68,19 +82,19 @@ public class LoanManagementPanel extends JPanel {
         gbc.insets = new Insets(0, 10, 20, 10);
         quickActionCard.add(lblCardTitle, gbc);
 
-        // Labels
         gbc.gridwidth = 1; gbc.gridy = 1; gbc.insets = new Insets(5, 10, 2, 10);
         quickActionCard.add(createInputLabel("MÃ ĐỘC GIẢ"), gbc);
         gbc.gridx = 1;
-        quickActionCard.add(createInputLabel("MÃ SÁCH"), gbc);
+        quickActionCard.add(createInputLabel("MÃ SÁCH (ID)"), gbc);
 
-        // Inputs
         gbc.gridy = 2; gbc.gridx = 0; gbc.weightx = 1.0;
         gbc.insets = new Insets(0, 10, 0, 10);
-        quickActionCard.add(createStyledField("Nhập mã thẻ..."), gbc);
+        txtMemberId = createStyledField("Nhập mã thẻ (VD: 1)...");
+        quickActionCard.add(txtMemberId, gbc);
 
         gbc.gridx = 1;
-        quickActionCard.add(createStyledField("Quét mã ISBN/Mã sách..."), gbc);
+        txtBookId = createStyledField("Nhập ID sách...");
+        quickActionCard.add(txtBookId, gbc);
 
         gbc.gridx = 2; gbc.weightx = 0;
         JButton btnExecute = new JButton("✔ THỰC HIỆN");
@@ -89,6 +103,27 @@ public class LoanManagementPanel extends JPanel {
         btnExecute.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnExecute.setPreferredSize(new Dimension(160, 45));
         btnExecute.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Sự kiện xử lý mượn sách
+        btnExecute.addActionListener(e -> {
+            try {
+                Long mId = Long.parseLong(txtMemberId.getText().replace("DG-", "").trim());
+                int bId = Integer.parseInt(txtBookId.getText().replace("BK-", "").trim());
+                Long uId = UserSession.getCurrentUser().getId();
+
+                String result = loanService.borrowBook(mId, bId, uId);
+                if ("SUCCESS".equals(result)) {
+                    JOptionPane.showMessageDialog(this, "Mượn sách thành công!");
+                    txtMemberId.setText("");
+                    txtBookId.setText("");
+                    refreshTable();
+                } else {
+                    JOptionPane.showMessageDialog(this, result, "Thông báo", JOptionPane.WARNING_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập ID hợp lệ!");
+            }
+        });
         quickActionCard.add(btnExecute, gbc);
 
         // --- 3. Table Section ---
@@ -110,15 +145,7 @@ public class LoanManagementPanel extends JPanel {
         tableHeader.add(txtSearch, BorderLayout.EAST);
 
         String[] columns = {"MÃ PHIẾU", "TÊN ĐỘC GIẢ", "TÊN SÁCH", "NGÀY MƯỢN", "HẠN TRẢ", "TÌNH TRẠNG", "THAO TÁC"};
-        Object[][] data = {
-            {"#PH8823", "Nguyễn Văn Khải", "Nhà Giả Kim", "01/05/2024", "15/05/2024", "QUÁ HẠN (5 NGÀY)", ""},
-            {"#PH8845", "Lê Thị Mai Anh", "Chiến Tranh và Hòa Bình", "28/04/2024", "12/05/2024", "QUÁ HẠN (8 NGÀY)", ""},
-            {"#PH8922", "Trần Minh Quân", "Đắc Nhân Tâm", "18/05/2024", "01/06/2024", "ĐANG MƯỢN", ""},
-            {"#PH8934", "Phạm Hoàng Nam", "Tâm Lý Học Tội Phạm", "19/05/2024", "02/06/2024", "ĐANG MƯỢN", ""},
-            {"#PH8950", "Hoàng Kim Ngân", "Suối Nguồn", "20/05/2024", "03/06/2024", "ĐANG MƯỢN", ""}
-        };
-
-        JTable table = new JTable(new DefaultTableModel(data, columns) {
+        table = new JTable(new DefaultTableModel(null, columns) {
             @Override public boolean isCellEditable(int r, int c) { return c == 6; }
         });
         styleLoanTable(table);
@@ -127,7 +154,6 @@ public class LoanManagementPanel extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getViewport().setBackground(BG_COLOR);
 
-        // --- Assemble ---
         JPanel centerContent = new JPanel();
         centerContent.setLayout(new BoxLayout(centerContent, BoxLayout.Y_AXIS));
         centerContent.setOpaque(false);
@@ -137,8 +163,43 @@ public class LoanManagementPanel extends JPanel {
 
         add(headerPanel, BorderLayout.NORTH);
         add(centerContent, BorderLayout.CENTER);
+
+        refreshTable();
     }
 
+    public void refreshTable() {
+    DefaultTableModel model = (DefaultTableModel) table.getModel();
+    model.setRowCount(0);
+    List<Loan> loans = loanService.getAllLoans();
+    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    for (Loan l : loans) {
+        if ("RETURNED".equals(l.getStatus())) continue;
+
+        // 1. Tìm tên sách (Đã có sẵn trong code của bạn)
+        Book b = bookService.getAllBooks().stream()
+                .filter(book -> book.getId() == l.getBookId().intValue())
+                .findFirst().orElse(null);
+        String bookTitle = (b != null) ? b.getTitle() : "N/A";
+
+        // 2. TÌM TÊN ĐỘC GIẢ (PHẦN SỬA LỖI TẠI ĐÂY)
+        // Thay vì hiển thị "Độc giả ID: " + l.getMemberId()
+        Member m = memberService.getMemberById(l.getMemberId());
+        String readerName = (m != null) ? m.getFullName() : "ID: " + l.getMemberId();
+
+        String tinhTrang = l.getDueDate().isBefore(java.time.LocalDate.now()) ? "QUÁ HẠN" : "ĐANG MƯỢN";
+
+        model.addRow(new Object[]{
+            "#PH" + String.format("%04d", l.getId()),
+            readerName, // Hiển thị tên thay vì "Độc giả ID: 1"
+            bookTitle,
+            l.getBorrowDate().format(dtf),
+            l.getDueDate().format(dtf),
+            tinhTrang,
+            ""
+        });
+    }
+}
     private JTextField createStyledField(String hint) {
         JTextField f = new JTextField();
         f.setPreferredSize(new Dimension(300, 45));
@@ -161,11 +222,7 @@ public class LoanManagementPanel extends JPanel {
     }
 
     private Icon safeLoadIcon(String path, int w, int h) {
-        try {
-            return new FlatSVGIcon(path, w, h);
-        } catch (Exception e) {
-            return null; // Trả về null để không hiện ô vuông đỏ lỗi
-        }
+        try { return new FlatSVGIcon(path, w, h); } catch (Exception e) { return null; }
     }
 
     private void styleLoanTable(JTable table) {
@@ -213,7 +270,6 @@ public class LoanManagementPanel extends JPanel {
         table.getColumnModel().getColumn(6).setCellEditor(new LoanActionEditor(table));
     }
 
-    // --- Renderer & Editor Fix (Nút không bị giãn to) ---
     class LoanActionRenderer implements TableCellRenderer {
         private final JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 12));
         private final JButton btn = new JButton("↩ TRẢ SÁCH");
@@ -245,8 +301,14 @@ public class LoanManagementPanel extends JPanel {
             btn.setFont(new Font("SansSerif", Font.BOLD, 12));
             btn.setPreferredSize(new Dimension(140, 35));
             wrapper.add(btn);
+            
+            // Xử lý sự kiện trả sách
             btn.addActionListener(e -> {
-                JOptionPane.showMessageDialog(null, "Đã xử lý trả sách phiếu: " + table.getValueAt(table.getSelectedRow(), 0));
+                int row = table.getSelectedRow();
+                Long loanId = Long.parseLong(table.getValueAt(row, 0).toString().replace("#PH", ""));
+                loanService.returnBook(loanId);
+                JOptionPane.showMessageDialog(null, "Trả sách thành công!");
+                refreshTable();
                 fireEditingStopped();
             });
         }
