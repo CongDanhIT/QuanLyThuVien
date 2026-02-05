@@ -14,13 +14,13 @@ public class AuthService {
     private UserRepository userRepo = new UserRepository();
 
     public String register(String fullName, String username, String password) {
-        // ... kiểm tra tồn tại ...
-        
+        // ... logic kiểm tra tồn tại ...
         User user = new User();
         user.setFullName(fullName);
         user.setUsername(username);
+        user.setRole("Thủ thư"); // <-- BỔ SUNG DÒNG NÀY
+        user.setIsActive(true);
         
-        // MÃ HÓA TRƯỚC KHI LƯU
         String securePassword = PasswordUtil.hashPassword(password);
         user.setPassword(securePassword); 
         

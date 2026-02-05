@@ -1,6 +1,7 @@
 package com.app.view;
 
 import com.app.util.UserSession;
+import com.app.view.components.AccountProfileDialog;
 import com.app.view.components.BookInventoryPanel;
 import com.app.view.components.DashboardPanel;
 import com.app.view.components.LoanManagementPanel;
@@ -152,47 +153,61 @@ public class MainFrame extends JFrame {
     }
 
     private JPanel createProfileSection() {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        p.setBorder(new EmptyBorder(20, 20, 30, 20));
+    JPanel p = new JPanel(new BorderLayout());
+    p.setOpaque(false);
+    p.setBorder(new EmptyBorder(20, 20, 30, 20));
 
-        JPanel card = new JPanel(new GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
-        card.setPreferredSize(new Dimension(220, 80));
-        
-        String adminName = UserSession.isLoggedIn() ? UserSession.getCurrentUser().getFullName() : "Admin SLMS";
-        
-        JLabel lblIcon = new JLabel("👤");
-        lblIcon.setFont(new Font("SansSerif", Font.PLAIN, 24));
-        lblIcon.setForeground(AMBER_GOLD);
+    // Khởi tạo thẻ Profile
+    JPanel card = new JPanel(new GridBagLayout()) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(CARD_BG);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+            g2.dispose();
+        }
+    };
+    card.setOpaque(false);
+    card.setPreferredSize(new Dimension(220, 80));
+    
+    // Thiết lập con trỏ chuột dạng bàn tay để người dùng biết có thể nhấn vào
+    card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        JLabel lblName = new JLabel(adminName);
-        lblName.setForeground(Color.WHITE);
-        lblName.setFont(new Font("SansSerif", Font.BOLD, 14));
+    // --- BỔ SUNG SỰ KIỆN CLICK ĐỂ MỞ MODAL ---
+    card.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override
+        public void mouseClicked(java.awt.event.MouseEvent e) {
+            // Khởi tạo và hiển thị Dialog thông tin tài khoản
+            AccountProfileDialog profileDialog = new AccountProfileDialog(MainFrame.this);
+            profileDialog.setVisible(true);
+        }
+    });
 
-        JLabel lblRole = new JLabel("Hệ thống thư viện");
-        lblRole.setForeground(TEXT_GRAY);
-        lblRole.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    String adminName = UserSession.isLoggedIn() ? UserSession.getCurrentUser().getFullName() : "Admin SLMS";
+    
+    JLabel lblIcon = new JLabel("👤");
+    lblIcon.setFont(new Font("SansSerif", Font.PLAIN, 24));
+    lblIcon.setForeground(AMBER_GOLD);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(0, 10, 0, 10);
-        gbc.gridx = 0; gbc.gridy = 0; gbc.gridheight = 2;
-        card.add(lblIcon, gbc);
-        gbc.gridx = 1; gbc.gridy = 0; gbc.gridheight = 1; gbc.anchor = GridBagConstraints.WEST;
-        card.add(lblName, gbc);
-        gbc.gridy = 1;
-        card.add(lblRole, gbc);
+    JLabel lblName = new JLabel(adminName);
+    lblName.setForeground(Color.WHITE);
+    lblName.setFont(new Font("SansSerif", Font.BOLD, 14));
 
-        p.add(card);
-        return p;
-    }
+    JLabel lblRole = new JLabel("Hệ thống thư viện");
+    lblRole.setForeground(TEXT_GRAY);
+    lblRole.setFont(new Font("SansSerif", Font.PLAIN, 11));
+
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(0, 10, 0, 10);
+    gbc.gridx = 0; gbc.gridy = 0; gbc.gridheight = 2;
+    card.add(lblIcon, gbc);
+    gbc.gridx = 1; gbc.gridy = 0; gbc.gridheight = 1; gbc.anchor = GridBagConstraints.WEST;
+    card.add(lblName, gbc);
+    gbc.gridy = 1;
+    card.add(lblRole, gbc);
+
+    p.add(card);
+    return p;
+}
 }
